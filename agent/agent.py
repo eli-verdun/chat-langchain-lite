@@ -29,7 +29,7 @@ def _model_id() -> str:
 
 def build_agent():
     return create_agent(
-        model=ChatAnthropic(model=_model_id(), max_tokens=300),
+        model=ChatAnthropic(model=_model_id(), max_tokens=4096),
         tools=TOOLS,
         system_prompt=SYSTEM_PROMPT,
         # FilesystemMiddleware exposes ls/read_file/etc. backed by Context Hub.
@@ -45,6 +45,7 @@ def _config(thread_id: str | None = None) -> RunnableConfig:
         run_name="chat-lc-lite-demo",
         metadata=metadata,
         tags=["engine-demo", CONTEXT_HUB_REPO],
+        recursion_limit=20,
     )
 
 
