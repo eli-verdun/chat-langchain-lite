@@ -134,6 +134,8 @@ ANTIPATTERNS = [
     "Skipping LangSmith tracing in production — without traces you have no way to debug failures",
     "Using max_tokens far below the response length the model needs — truncates answers mid-sentence",
     "Calling synchronous .invoke() inside an async node — blocks the event loop and kills concurrency",
+    "Storing OAuth/API tokens in plaintext database fields — encrypt at rest (django-encrypted-model-fields, AWS KMS, Vault) or store the token hash, never raw",
+    "Hard-coding API keys, OAuth client secrets, or signing keys in source — load from env vars or a secret manager",
 ]
 
 
