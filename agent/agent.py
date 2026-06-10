@@ -28,8 +28,13 @@ def _model_id() -> str:
 
 
 def build_agent():
+    model_id = _model_id()
     return create_agent(
-        model=ChatAnthropic(model=_model_id(), max_tokens=2048),
+        model=ChatAnthropic(
+            model=model_id,
+            max_tokens=2048,
+            metadata={"ls_provider": "anthropic", "ls_model_name": model_id},
+        ),
         tools=TOOLS,
         system_prompt=SYSTEM_PROMPT,
         # FilesystemMiddleware exposes ls/read_file/etc. backed by Context Hub.
@@ -37,10 +42,20 @@ def build_agent():
     )
 
 
-def _config(thread_id: str | None = None) -> RunnableConfig:
-    metadata = {"demo": "true", "demo_type": "chat-lc-lite", "model": _model_id()}
+def _config(thread_id: str | None = None, user_id: str | None = None) -> RunnableConfig:
+    model_id = _model_id()
+    metadata = {
+        "demo": "true",
+        "demo_type": "chat-lc-lite",
+        "model": model_id,
+        "ls_provider": "anthropic",
+        "ls_model_name": model_id,
+        "environment": os.getenv("CHAT_LANGCHAIN_LITE_ENV", "production"),
+    }
     if thread_id:
         metadata["thread_id"] = thread_id
+    if user_id:
+        metadata["user_id"] = user_id
     return RunnableConfig(
         run_name="chat-lc-lite-demo",
         metadata=metadata,
