@@ -27,9 +27,17 @@ def _model_id() -> str:
     return os.getenv("CHAT_LANGCHAIN_LITE_MODEL") or _DEFAULT_MODEL
 
 
+def _max_tokens() -> int:
+    raw = os.getenv("CHAT_LANGCHAIN_LITE_MAX_TOKENS")
+    try:
+        return int(raw) if raw else 8192
+    except ValueError:
+        return 8192
+
+
 def build_agent():
     return create_agent(
-        model=ChatAnthropic(model=_model_id(), max_tokens=2048),
+        model=ChatAnthropic(model=_model_id(), max_tokens=_max_tokens()),
         tools=TOOLS,
         system_prompt=SYSTEM_PROMPT,
         # FilesystemMiddleware exposes ls/read_file/etc. backed by Context Hub.
