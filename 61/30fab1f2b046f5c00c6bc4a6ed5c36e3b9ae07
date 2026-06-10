@@ -1,0 +1,16 @@
+agent/agent.py
+  h_581153be4e874b 32
+.gitignore
+  h_581153be4e874b 12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.6",
+  "base_commit_sha": "6130fab1f2b046f5c00c6bc4a6ed5c36e3b9ae07",
+  "prompts": {},
+  "humans": {
+    "h_581153be4e874b": {
+      "author": "Eli Verdun <eli.verdun@langchain.dev>"
+    }
+  }
+}
