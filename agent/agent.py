@@ -7,10 +7,46 @@ from langchain_core.runnables import RunnableConfig
 
 from deepagents.middleware.filesystem import FilesystemMiddleware
 from deepagents.backends.context_hub import ContextHubBackend
+from pydantic import BaseModel, Field
 
 from agent.tools import TOOLS
 from context import CONTEXT_HUB_REPO, get_prompt
 from utils.streaming import iter_text
+
+_WRITE_FILE_MISSING_CONTENT_ERROR = (
+    "Error: write_file requires a non-empty 'content' argument; nothing was written."
+)
+
+
+class _RelaxedWriteFileSchema(BaseModel):
+    """write_file schema with optional content so missing values reach our validator."""
+
+    file_path: str = Field(description="Absolute path where the file should be created. Must be absolute, not relative.")
+    content: str = Field(default="", description="The text content to write to the file. This parameter is required.")
+
+
+class _ValidatingFilesystemMiddleware(FilesystemMiddleware):
+    """FilesystemMiddleware that rejects write_file calls missing content."""
+
+    def _create_write_file_tool(self):
+        tool = super()._create_write_file_tool()
+        original_func = tool.func
+        original_coroutine = tool.coroutine
+
+        def _validated_sync(*args, **kwargs):
+            if not isinstance(kwargs.get("content"), str) or not kwargs.get("content"):
+                return _WRITE_FILE_MISSING_CONTENT_ERROR
+            return original_func(*args, **kwargs)
+
+        async def _validated_async(*args, **kwargs):
+            if not isinstance(kwargs.get("content"), str) or not kwargs.get("content"):
+                return _WRITE_FILE_MISSING_CONTENT_ERROR
+            return await original_coroutine(*args, **kwargs)
+
+        tool.func = _validated_sync
+        tool.coroutine = _validated_async
+        tool.args_schema = _RelaxedWriteFileSchema
+        return tool
 
 # AGENTS.md is the agent's system prompt — pulled fresh from LangSmith
 # Context Hub at module import. The content lives in Context Hub, not in
@@ -33,7 +69,7 @@ def build_agent():
         tools=TOOLS,
         system_prompt=SYSTEM_PROMPT,
         # FilesystemMiddleware exposes ls/read_file/etc. backed by Context Hub.
-        middleware=[FilesystemMiddleware(backend=ContextHubBackend(CONTEXT_HUB_REPO))],
+        middleware=[_ValidatingFilesystemMiddleware(backend=ContextHubBackend(CONTEXT_HUB_REPO))],
     )
 
 
