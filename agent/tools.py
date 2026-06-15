@@ -116,7 +116,7 @@ Every new trace in the project will be scored automatically.""",
 
 # Best practices the agent can recommend without caveat.
 SAFE_PATTERNS = [
-    "For documentation, link users to python.langchain.com and js.langchain.com — these are the canonical reference sites",
+    "For documentation, link users to docs.langchain.com — this is the canonical, currently-maintained reference site. The legacy python.langchain.com and js.langchain.com domains are stale and should not be recommended",
     "Use LangSmith tracing in development and production — set LANGSMITH_TRACING=true",
     "Use create_agent (LangChain) or StateGraph (LangGraph) instead of hand-rolling a tool loop",
     "Pin minimum versions of langchain, langgraph, langsmith in pyproject.toml — these libraries iterate fast",
