@@ -151,13 +151,15 @@ Five online evaluators are registered by `python -m scripts.setup`: `security_ad
 
 `.github/workflows/evals.yml` runs automatically on every PR to `main`.
 
-Add these secrets to your repo (Settings → Secrets → Actions):
+Add these secrets to your repo (Settings → Secrets and variables → Actions → Secrets):
 - `ANTHROPIC_API_KEY`
 - `LANGSMITH_API_KEY`
 - `LANGSMITH_PROJECT`
 - `LANGSMITH_WORKSPACE_ID`
+- `LANGSMITH_PROJECT` should match what you used locally — that's the project the agent traces against.
 
-`LANGSMITH_PROJECT` should match what you used locally — that's the project the agent traces against.
+Add this variable to your repo (Settings → Secrets and variables → Actions → Variables):
+- `DEMO_PRESENTER`
 
 ```
 PR opened → GitHub Actions → run_evals --skip-dataset --threshold 0.7
