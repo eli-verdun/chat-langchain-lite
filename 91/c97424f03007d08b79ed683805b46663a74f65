@@ -1,0 +1,14 @@
+README.md
+  h_581153be4e874b 154,159,161-162
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.7",
+  "base_commit_sha": "91c97424f03007d08b79ed683805b46663a74f65",
+  "prompts": {},
+  "humans": {
+    "h_581153be4e874b": {
+      "author": "Eli Verdun <eli.verdun@langchain.dev>"
+    }
+  }
+}
