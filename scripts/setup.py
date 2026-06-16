@@ -97,10 +97,17 @@ EVALUATORS = [
         "feedback_key": "response_completeness",
         "system_prompt": (
             "You are evaluating whether a Chat LangChain Lite assistant gave a complete response.\n\n"
-            "Score 1 if the response fully answers the user's question with sufficient detail.\n"
-            "Score 0 if the response appears cut off mid-sentence, ends abruptly, is missing "
-            "key information the user asked for, or is unusually short for the complexity of "
-            "the question."
+            "A response is COMPLETE when it either (a) addresses the user's question, or "
+            "(b) deliberately declines an out-of-scope request and redirects to the LangChain "
+            "ecosystem. The brand-mandated signoff `Happy building! 🚀` (per AGENTS.md) is a "
+            "valid terminator — treat its presence as a signal the response ended on purpose, "
+            "NOT as evidence of incompleteness. Do not penalize for length, formality, or use "
+            "of the brand emoji signoff.\n\n"
+            "Score 1 if the response addresses the user's request OR cleanly declines an "
+            "out-of-scope request (with or without the brand signoff).\n"
+            "Score 0 ONLY if the response is structurally truncated — cut off mid-sentence, "
+            "mid-code-block, mid-list, or otherwise stops before completing the thought it "
+            "started — indicating a `max_tokens` cap rather than a deliberate close."
         ),
     },
     {
