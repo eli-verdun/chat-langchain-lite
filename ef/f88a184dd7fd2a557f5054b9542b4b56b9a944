@@ -1,0 +1,14 @@
+utils/context_hub.py
+  h_581153be4e874b 34-35,39-42
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.9",
+  "base_commit_sha": "eff88a184dd7fd2a557f5054b9542b4b56b9a944",
+  "prompts": {},
+  "humans": {
+    "h_581153be4e874b": {
+      "author": "Eli Verdun <eli.verdun@langchain.dev>"
+    }
+  }
+}
