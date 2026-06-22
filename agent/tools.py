@@ -157,7 +157,7 @@ def lookup_concept(concept_name: str) -> str:
 
 @tool
 def get_setup_guide(topic: str) -> str:
-    """Get a setup or how-to guide for a LangChain ecosystem topic. Topics: installation, environment, deployment, evaluation."""
+    """Get a setup or how-to guide for a LangChain / LangGraph / LangSmith topic. Topics: installation (LC packages), environment (LangSmith/Anthropic env vars), deployment (LangGraph Platform only — NOT for AWS/K8s/Docker/ECS/GCP/Azure), evaluation (LangSmith evals). Do not call this for generic cloud, container, or CI/CD deployment questions."""
     key = topic.lower().strip()
     for db_key, content in SETUP_GUIDES_DB.items():
         if key in db_key or db_key in key:
