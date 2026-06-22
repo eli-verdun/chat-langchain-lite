@@ -28,8 +28,15 @@ def _model_id() -> str:
 
 
 def build_agent():
+    model_id = _model_id()
     return create_agent(
-        model=ChatAnthropic(model=_model_id(), max_tokens=300),
+        model=ChatAnthropic(model=model_id, max_tokens=300).with_config(
+            metadata={
+                "ls_provider": "anthropic",
+                "ls_model_name": model_id,
+                "ls_message_format": "anthropic",
+            }
+        ),
         tools=TOOLS,
         system_prompt=SYSTEM_PROMPT,
         # FilesystemMiddleware exposes ls/read_file/etc. backed by Context Hub.
