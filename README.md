@@ -151,13 +151,15 @@ Five online evaluators are registered by `python -m scripts.setup`: `security_ad
 
 `.github/workflows/evals.yml` runs automatically on every PR to `main`.
 
-Add these secrets to your repo (Settings → Secrets → Actions):
+Add these secrets to your repo (Settings → Secrets and variables → Actions → Secrets):
 - `ANTHROPIC_API_KEY`
 - `LANGSMITH_API_KEY`
 - `LANGSMITH_PROJECT`
 - `LANGSMITH_WORKSPACE_ID`
+- `LANGSMITH_PROJECT` should match what you used locally — that's the project the agent traces against.
 
-`LANGSMITH_PROJECT` should match what you used locally — that's the project the agent traces against.
+Add this variable to your repo (Settings → Secrets and variables → Actions → Variables):
+- `DEMO_PRESENTER`
 
 ```
 PR opened → GitHub Actions → run_evals --skip-dataset --threshold 0.7
@@ -210,11 +212,12 @@ Run after the demo to reset everything for the next presenter:
 python -m scripts.cleanup
 ```
 
-This does four things:
+This does five things:
 1. **Resets dataset to original 3 examples** — deletes all examples and re-uploads the canonical 3, removing anything Engine added
-2. **Deletes all experiments** — CI/CD generates fresh before/after experiments on every PR, so nothing needs to be preserved between demos
+2. **Deletes CI/Engine experiments** — keeps the `baseline-*` seed experiments from `setup.py` (the Haiku-vs-Sonnet "before" reference); CI/CD regenerates before/after experiments on every PR
 3. **Removes Engine-added online evaluators** — uses saved run rule IDs from `.demo_state.json` to delete only evaluators Engine added, leaving the 5 from `setup.py` in place
-4. **Resets main to the `baseline` tag** — force-resets to remove Engine's merged PR, restoring the buggy agent state
+4. **Re-seeds Context Hub to the buggy baseline** — re-pushes the seed `AGENTS.md` and demo skills, restoring the buggy prompt if it was fixed in the Context Hub UI during the demo (a code/dataset reset can't touch Context Hub)
+5. **Resets main to the `baseline` tag** — force-resets to remove Engine's merged PR, restoring the buggy agent state
 
 After cleanup, the demo is ready to run again — no need to re-run `setup.py`.
 
