@@ -1,0 +1,14 @@
+scripts/run_evals.py
+  h_581153be4e874b 140
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.4",
+  "base_commit_sha": "75f9a1939d5f05906e63767bbf6651ffdd1a42e9",
+  "prompts": {},
+  "humans": {
+    "h_581153be4e874b": {
+      "author": "Eli Verdun <eli.verdun@langchain.dev>"
+    }
+  }
+}
