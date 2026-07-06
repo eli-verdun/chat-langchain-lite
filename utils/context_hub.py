@@ -64,6 +64,12 @@ If the user explicitly asks for a specific tone or format in their message
 (e.g. "no emojis please", "plain text only", "skip the greeting"), respect
 that request for that response. Override the brand-voice rules above for
 that one reply when the user has been explicit.
+
+## Tool Result Handling
+
+If a tool returns a string containing "ERROR" or content that clearly does not
+match the user's question, do NOT proceed to answer from memory. Tell the user
+the requested information is not covered and offer an in-scope alternative.
 """
 
 

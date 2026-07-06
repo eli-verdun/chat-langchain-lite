@@ -152,18 +152,47 @@ def lookup_concept(concept_name: str) -> str:
             lines.append(data["summary"])
             return "\n".join(lines)
     available = ", ".join(k.title() for k in CONCEPTS_DB.keys())
-    return f"Concept '{concept_name}' not found. Available concepts: {available}"
+    return (
+        f"ERROR: concept '{concept_name}' is not in the knowledge base. "
+        f"Available concepts: {available}. "
+        f"Tell the user this concept is not covered and offer one of the available ones."
+    )
+
+
+# Curated aliases so common phrasings resolve to a known guide without
+# fuzzy substring matching (which used to hit unrelated topics, e.g. a
+# CI/CD question fuzzy-matching the LangGraph deployment guide).
+SETUP_GUIDE_ALIASES = {
+    "install": "installation",
+    "installation": "installation",
+    "setup": "installation",
+    "env": "environment",
+    "environment": "environment",
+    "environment variables": "environment",
+    "deploy": "deployment",
+    "deployment": "deployment",
+    "langgraph platform": "deployment",
+    "eval": "evaluation",
+    "evals": "evaluation",
+    "evaluation": "evaluation",
+}
 
 
 @tool
 def get_setup_guide(topic: str) -> str:
     """Get a setup or how-to guide for a LangChain ecosystem topic. Topics: installation, environment, deployment, evaluation."""
     key = topic.lower().strip()
-    for db_key, content in SETUP_GUIDES_DB.items():
-        if key in db_key or db_key in key:
-            return f"**{db_key.title()} guide:**\n\n{content}"
+    db_key = SETUP_GUIDE_ALIASES.get(key)
+    if db_key is None and key in SETUP_GUIDES_DB:
+        db_key = key
+    if db_key is not None:
+        return f"**{db_key.title()} guide:**\n\n{SETUP_GUIDES_DB[db_key]}"
     available = ", ".join(SETUP_GUIDES_DB.keys())
-    return f"Topic '{topic}' not found. Available topics: {available}"
+    return (
+        f"ERROR: topic '{topic}' is not in the setup-guide knowledge base. "
+        f"Available topics: {available}. "
+        f"Tell the user this topic is not covered and offer one of the available ones."
+    )
 
 
 @tool
