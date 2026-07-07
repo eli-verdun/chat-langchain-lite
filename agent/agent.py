@@ -42,10 +42,11 @@ def _readonly_context_hub_fs() -> FilesystemMiddleware:
 
 def build_agent():
     return create_agent(
-        # temperature=0 for deterministic, reproducible demo behavior — the
-        # intentional bugs (tone, scope, truncation) come from the prompt and
-        # max_tokens, not sampling, so pinning temperature keeps traces consistent.
-        model=ChatAnthropic(model=_model_id(), max_tokens=300, temperature=0),
+        # temperature=0 for deterministic, reproducible demo behavior. max_tokens
+        # is intentionally unset so long tutorial/code answers can complete — the
+        # previous 300-token ceiling truncated final assistant messages mid-
+        # sentence and mid-YAML.
+        model=ChatAnthropic(model=_model_id(), temperature=0),
         tools=TOOLS,
         system_prompt=SYSTEM_PROMPT,
         middleware=[_readonly_context_hub_fs()],
