@@ -152,7 +152,13 @@ def lookup_concept(concept_name: str) -> str:
             lines.append(data["summary"])
             return "\n".join(lines)
     available = ", ".join(k.title() for k in CONCEPTS_DB.keys())
-    return f"Concept '{concept_name}' not found. Available concepts: {available}"
+    return (
+        f"[LOOKUP_MISS] Concept '{concept_name}' is NOT in the knowledge "
+        f"base. Do not fabricate details (release year, package name, "
+        f"architecture) about it. Acknowledge the miss to the user and "
+        f"either offer disclaimed general info or an in-scope alternative. "
+        f"Available concepts: {available}"
+    )
 
 
 @tool
