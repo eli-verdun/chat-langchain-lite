@@ -157,8 +157,16 @@ def lookup_concept(concept_name: str) -> str:
 
 @tool
 def get_setup_guide(topic: str) -> str:
-    """Get a setup or how-to guide for a LangChain ecosystem topic. Topics: installation, environment, deployment, evaluation."""
+    """LangChain / LangGraph / LangSmith setup guides only: Python package installation, LANGSMITH_* env vars, LangGraph Platform deployment, offline eval setup. Not for AWS / GCP / Kubernetes / Docker infrastructure."""
     key = topic.lower().strip()
+    off_scope = ("aws", "ecs", "kubernetes", "k8s", "docker", "gcp", "cloudwatch", "terraform", "ansible")
+    if any(token in key for token in off_scope):
+        return (
+            f"get_setup_guide does not cover '{topic}'. This tool only "
+            "provides LangChain / LangGraph / LangSmith setup guides. "
+            "Cloud/infrastructure topics are out of scope — do not rely on "
+            "this tool for them."
+        )
     for db_key, content in SETUP_GUIDES_DB.items():
         if key in db_key or db_key in key:
             return f"**{db_key.title()} guide:**\n\n{content}"
