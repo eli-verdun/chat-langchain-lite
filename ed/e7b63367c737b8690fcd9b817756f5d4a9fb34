@@ -1,0 +1,49 @@
+evals/dataset_snapshot.py
+  s_0cdc13f3a1cf25::t_360ab404c6a261 1-177
+evals/dataset_golden.json
+  s_0cdc13f3a1cf25::t_033482c79408cf 1-328
+scripts/cleanup.py
+  s_0cdc13f3a1cf25::t_eb3a386d5f3a3c 33,52-59
+  s_0cdc13f3a1cf25::t_ffca3c2a466e58 60
+evals/dataset_pii.json
+  s_0cdc13f3a1cf25::t_016deb13b83ae4 290
+  s_0cdc13f3a1cf25::t_033482c79408cf 1-289,291-342
+evals/run_experiment.py
+  s_0cdc13f3a1cf25::t_2881644c94424e 1-429
+evals/dataset_guardrail.json
+  s_0cdc13f3a1cf25::t_033482c79408cf 1-358
+evals/dataset_hallucinations.json
+  s_0cdc13f3a1cf25::t_033482c79408cf 1-398
+evals/evaluators.py
+  s_0cdc13f3a1cf25::t_f4bf73a48527e4 547-561,598-602
+  s_0cdc13f3a1cf25::t_c03a5d6dc9c287 816-817
+  s_0cdc13f3a1cf25::t_ca4ce7dd1e05fd 1,3,5-25,29-35,37,42-118,120-136,138-284,286-287,289-291,293-364,366-417,419-421,423-546,562-597,603-742,744-815,818-912,916-920,922-924,926-927,929-933,936-940,942,944-949,959-977
+scripts/setup_workspace.py
+  s_0cdc13f3a1cf25::t_eb3a386d5f3a3c 43,56-64
+.github/workflows/evals.yml
+  s_0cdc13f3a1cf25::t_c0da2415928397 3-7,11-20,24-31,33-54,56,68,70-71,75-76,78,80-81,86-87,89-171
+README.md
+  s_0cdc13f3a1cf25::t_250621e54e1a2c 213-215,222,224-227,229-234,236,238-241,243-305,331-340,364-371,374-380,406-413
+  s_0cdc13f3a1cf25::t_eab824d36fa1ce 306-330
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.2",
+  "base_commit_sha": "ede7b63367c737b8690fcd9b817756f5d4a9fb34",
+  "prompts": {},
+  "humans": {
+    "h_581153be4e874b": {
+      "author": "Eli Verdun <eli.verdun@langchain.dev>"
+    }
+  },
+  "sessions": {
+    "s_0cdc13f3a1cf25": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1548358e-78e6-44c1-8984-cd65e7e128ac",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Eli Verdun <eli.verdun@langchain.dev>"
+    }
+  }
+}
