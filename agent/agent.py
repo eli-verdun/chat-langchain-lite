@@ -42,18 +42,18 @@ def _readonly_context_hub_fs() -> FilesystemMiddleware:
 def _make_model() -> ChatOpenAI:
     """Build the agent model, routed through the LangSmith LLM Gateway.
 
-    `max_tokens=300` is Bug 4. It truncates long technical answers. Engine
-    must find it in this file.
+    The output budget is left at the model default so long technical answers
+    finish instead of being cut off mid-sentence. Any preference for shorter
+    replies belongs in the AGENTS.md system prompt as prose guidance.
 
     Temperature is left at the model default. The gpt-5 family rejects a
-    custom temperature. The planted bugs come from the prompt, the tools, and
-    the token cap, not from sampling, so traces stay consistent anyway.
+    custom temperature. The planted bugs come from the prompt and the tools,
+    not from sampling, so traces stay consistent anyway.
 
     `stream_usage=True` keeps token counts and cost on streamed runs.
     """
     return ChatOpenAI(
         model=_model_id(),
-        max_tokens=300,
         streaming=True,
         stream_usage=True,
         **openai_gateway_kwargs(),
