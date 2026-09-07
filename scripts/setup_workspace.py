@@ -40,6 +40,7 @@ from langsmith import Client  # noqa: E402
 
 from context import CONTEXT_HUB_REPO  # noqa: E402
 from evals.dataset import DATASET_NAME, TOOL_ADHERENCE_DATASET_NAME  # noqa: E402
+from evals.dataset_snapshot import DATASETS as SNAPSHOTS  # noqa: E402
 from utils.context_hub import DEMO_SKILL_NAMES  # noqa: E402
 from utils.governance import (  # noqa: E402
     APPLICATION_NAME,
@@ -52,7 +53,15 @@ from utils.governance import (  # noqa: E402
 
 _API = "https://api.smith.langchain.com/api/v1"
 PROJECT_NAME = os.getenv("LANGSMITH_PROJECT", "chat-lc-lite")
-DATASET_NAMES = [DATASET_NAME, TOOL_ADHERENCE_DATASET_NAME]
+# Every dataset this demo owns: the four committed suites (golden,
+# hallucinations, pii, guardrail) plus the two older Engine-format datasets.
+# Experiments inherit the Application tag from their dataset, so keeping this
+# list complete keeps every future experiment inside the application.
+DATASET_NAMES = [
+    *(cfg.name for cfg in SNAPSHOTS.values()),
+    DATASET_NAME,
+    TOOL_ADHERENCE_DATASET_NAME,
+]
 
 
 def _headers() -> dict:

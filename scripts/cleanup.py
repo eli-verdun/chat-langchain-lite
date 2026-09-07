@@ -30,6 +30,7 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 from evals.dataset import DATASET_NAME, TOOL_ADHERENCE_DATASET_NAME, DEMO_PRESENTER
+from evals.dataset_snapshot import DATASETS as SNAPSHOTS
 from utils.context_hub import DEMO_SKILL_NAMES
 PROJECT_NAME = os.getenv("LANGSMITH_PROJECT", "chat-lc-lite")
 
@@ -47,6 +48,15 @@ def reset_dataset() -> None:
 
     print(f"\n[1/3] Resetting demo datasets to canonical seeds...")
     ls_client = Client()
+
+    # The four committed suites are restored from their JSON snapshots, which
+    # is also how Engine-added examples are removed from them.
+    from evals.dataset_snapshot import restore_dataset
+    for alias, cfg in sorted(SNAPSHOTS.items()):
+        try:
+            restore_dataset(cfg.name, cfg.path, reset=True)
+        except Exception as exc:  # noqa: BLE001
+            print(f"  Could not restore '{cfg.name}': {exc}")
 
     for name, examples in (
         (DATASET_NAME, EXAMPLES),

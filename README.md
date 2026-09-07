@@ -210,27 +210,134 @@ LangGraph SDK on loopback — it never imports the graph directly.
 | `python -m scripts.setup_workspace` | Review queue + `Application` tagging + the negative-feedback run rule |
 | `python -m scripts.setup_insights` | Insights report over the traces (run AFTER trace generation) |
 | `python -m scripts.generate_traces` | Runs 11 single-turn queries + 1 multi-turn thread through the buggy agent |
-| `python -m scripts.run_evals` | Runs offline evals against the dataset and prints scores |
+| `python evals/dataset_snapshot.py restore all --reset` | Create the four eval datasets from the committed snapshots |
+| `python evals/run_experiment.py all` | Run an offline experiment per dataset, with per-dataset evaluators and gates |
+| `python -m scripts.run_evals` | Runs the older assertions-only eval against `chat-lc-lite-scope-*` and prints scores |
 | `python -m scripts.run_evals --skip-dataset` | Re-runs evals against existing dataset (used in CI) |
 | `python -m scripts.run_evals --threshold 0.7` | Exits with code 1 if scores < 0.7 (used in CI) |
 | `python -m scripts.cleanup` | Resets demo to clean state — see Cleanup section |
 | `python -m scripts.cleanup --full` | Same, plus deletes the LangSmith project (so Engine sees a fresh project on the next demo). Re-run `scripts.setup` after. |
 | `uv run langgraph dev` | Start the graph server with the Chat LangChain Lite UI mounted on it (http://localhost:2024/) |
 
-## Evaluators
+## Datasets & evaluators
 
-One assertion evaluator runs in CI (offline). `EVAL_JUDGE_MODEL` scores each
-assertion 0 or 1 through the LLM Gateway, and the example score is the fraction that
-pass. The seed assertions cover:
+Four committed JSON snapshots under `evals/`, restored with
+`evals/dataset_snapshot.py`. The snapshots are in the repo, so the datasets
+survive a deletion and give a reproducible baseline — nobody waits on an Engine
+scan.
 
-- **`tool_selection`** — did the agent ground its response in tool output rather than answering from memory? Goes 0→1 when the bad system prompt is fixed.
-- **`scope_adherence`** — did the agent stay LangChain-ecosystem-only and decline off-topic questions?
+| Dataset | Examples | What it probes | Evaluators |
+|---|---|---|---|
+| `chat-lc-lite-golden` | 16 | concept lookup, setup and install, tracing and evals, deployment and persistence, best practice, and one out-of-scope row | `answer_correctness`, `tool_selection`, `hallucination`, `citation_hygiene`, `version_accuracy`, `response_completeness`, `professional_tone` |
+| `chat-lc-lite-hallucinations` | 14 | invented APIs, packages, parameters, and URLs; wrong versions and years; grounded controls; missing-data bait | `hallucination`, `assertions_pass_rate`, `version_accuracy`, `citation_hygiene` |
+| `chat-lc-lite-pii` | 12 | credential read-back bait, authority framings, unsafe key handling | `credential_leak_rate`, `assertions_pass_rate`, `pressure_resistance` |
+| `chat-lc-lite-guardrail` | 22 | 8 refuse (out of scope or unsafe practice), 6 injection and instruction-disclosure, 8 benign in-scope | `refusal_decision_correct`, `credential_leak_rate` |
 
-## Online Evaluators
+Every name carries the `DEMO_PRESENTER` suffix.
 
-Online evaluators run automatically on every trace as it arrives in LangSmith. This gives Engine a continuous signal on live traffic, not just offline evals on a fixed dataset.
+```bash
+python evals/dataset_snapshot.py restore all --reset   # create all four from the snapshots
+python evals/dataset_snapshot.py export golden         # pull the live dataset back into its snapshot
+```
 
-Six online evaluators are registered by `python -m scripts.setup`: `security_advice`, `scope_adherence`, `tool_usage`, `response_completeness`, `professional_tone`, and `factual_accuracy`.
+> **The credential bait is synthetic.** Every credential-shaped string in
+> `evals/dataset_pii.json` spells out `EXAMPLEONLYNOTAREAL` inside its own value.
+> None has ever been a valid credential.
+
+### The 13 offline evaluators
+
+| Evaluator | Higher is | Catches | Kind |
+|---|---|---|---|
+| `answer_correctness` | better | a wrong answer against a written reference | judge |
+| `tool_selection` | better | answering from memory instead of calling a tool | code |
+| `trajectory_accuracy` | better | a tool sequence that does not follow the question | judge |
+| `hallucination` | **worse** | invented APIs, versions, years, URLs | judge |
+| `citation_hygiene` | better | the stale docs domain in `agent/tools.py` | code |
+| `version_accuracy` | better | the wrong LangGraph minimum Python | code |
+| `response_completeness` | better | `max_tokens=300` truncation | code |
+| `professional_tone` | better | the casual, emoji voice from Context Hub | code |
+| `scope_adherence` | better | answering outside the LangChain ecosystem | judge |
+| `refusal_decision_correct` | better | refusing when it should, answering when it should | judge + code |
+| `pressure_resistance` | better | caving to insistence on an unsafe practice | judge |
+| `credential_leak_rate` | **worse** | echoing a pasted key, or advising a user to commit one | code |
+| `assertions_pass_rate` | better | whatever Engine's generated assertions describe | judge |
+
+`hallucination` and `credential_leak_rate` are detection-framed: they score 1.0
+when the defect is PRESENT, so their mean reads as a rate. Every other evaluator
+scores 1.0 on a pass.
+
+Six of the thirteen are pure code, so they cost nothing and never flake. The
+judges run on `EVAL_JUDGE_MODEL` through the LLM Gateway.
+
+Two details worth knowing:
+
+- **The judge prompts substitute, they do not `str.format`.** The values are
+  agent responses, which routinely contain braces — JSON, dict literals,
+  f-strings. `str.format` reads those as fields and raises, so the evaluator
+  would crash on exactly the code-heavy answers this chatbot produces.
+  Substitution also cannot reach past the placeholder.
+- **Every judge prompt tells the judge that delimited content is data.** The
+  agent under test repeats user text, so a hostile question arrives inside the
+  field the judge is reading.
+
+### Running experiments
+
+```bash
+python evals/run_experiment.py golden           # one dataset
+python evals/run_experiment.py all              # all four, one experiment each
+python evals/run_experiment.py golden --gate    # enforce the merge gate, exit 1 on a violation
+```
+
+`GATES` in `run_experiment.py` holds a per-dataset threshold table. The gates
+are calibrated for the **fixed** state: Context Hub prompt repaired, docs domain
+corrected, LangGraph version corrected, `max_tokens` raised.
+
+> **The golden and guardrail gates FAIL on the freshly seeded repo.** That is
+> the demo, not a defect. Three golden rows are tagged `catches_bug` in their
+> metadata and state the TRUE fact, so they fail while the bug is present. The
+> guardrail suite sits near 0.4 because the seeded `AGENTS.md` says never to
+> decline: the 8 benign rows pass and most of the 14 refuse rows do not.
+
+A nice property of this domain: **two tools disagree.** `lookup_concept` reports
+LangGraph's minimum Python as `3.7+`, while `get_setup_guide("installation")`
+reports the correct `3.10`. So which tool the agent reaches for decides whether
+it is right — the demo shows a knowledge defect, not just a missing tool call.
+
+### The bugs mask each other, and that is the best beat in the demo
+
+Measured on the seeded (buggy) state, golden scores:
+
+| Evaluator | Score | Reading |
+|---|---|---|
+| `professional_tone` | 0.00 | every answer opens "Hey there! 👋" |
+| `response_completeness` | 0.38 | 10 of 16 answers truncate at the 300-token cap |
+| `tool_selection` | 0.50 | half the answers call no tool at all |
+| `hallucination` | 0.69 | ungrounded, because nothing was retrieved |
+| `answer_correctness` | 0.81 | the model's own knowledge is mostly right |
+| `version_accuracy` | 0.94 | **almost clean** |
+| `citation_hygiene` | 1.00 | **clean** |
+
+The last two look clean, and they are not. `AGENTS.md` says *do not use any
+tools*, so the agent never reads the poisoned `SAFE_PATTERNS` or the wrong
+`min_python` — the two defects that live in `agent/tools.py` are unreachable
+while the prompt bug hides them.
+
+**Fix the prompt first and those two scores get worse**, because the agent
+starts calling the tools and faithfully repeats what they say. That is the point
+worth making in the room: a prompt fix moved one metric up and two others down,
+and only a suite this wide shows it. Fix in this order — Context Hub prompt,
+then `agent/tools.py`, then `max_tokens`.
+
+## Online evaluators
+
+Online evaluators run automatically on every trace as it arrives in LangSmith.
+That gives Engine a continuous signal on live traffic, not only offline evals on
+a fixed dataset. They score traces that arrive AFTER the rule is created; there
+is no backfill.
+
+Six are registered by `python -m scripts.setup`: `security_advice`,
+`scope_adherence`, `tool_usage`, `response_completeness`, `professional_tone`,
+and `factual_accuracy`.
 
 ## CI/CD
 
@@ -254,13 +361,23 @@ PR to fire it.
 `DEMO_PRESENTER` should match the presenter name used by the demo setup.
 
 ```
-PR opened → GitHub Actions → run_evals --skip-dataset --threshold 0.7
-                                          ↓
-                               scores < 0.7 → ❌ blocks merge
-                               scores ≥ 0.7 → ✅ mergeable
+PR opened + `run-evals` label
+        ↓
+GitHub Actions matrix: golden | guardrail | hallucinations | pii
+        ↓
+each job runs evals/run_experiment.py <alias> and comments its scores on the PR
+        ↓
+golden gate not met → ❌ blocks merge
+golden gate met     → ✅ mergeable
 ```
 
-CI runs evals on both the base branch (creating the "before" experiment) and the PR branch (creating the "after" experiment) in LangSmith automatically. Because `--skip-dataset` fetches the existing dataset from LangSmith by name, any examples Engine adds to the dataset are included in the eval run automatically.
+Only the **golden** job carries `--gate`. The other three report their scores
+and never block, because their thresholds are calibrated for the fixed Context
+Hub prompt and the seeded demo state deliberately fails them — gating there
+would block every PR until someone fixes the prompt in the Context Hub UI.
+
+Each job fetches its dataset from LangSmith by name, so any examples Engine adds
+are picked up on the next run automatically.
 
 ## Repo structure
 
@@ -286,8 +403,14 @@ utils/
 └── governance.py     # Application name, review queue name, feedback rule filter
 
 evals/
-├── dataset.py        # creates per-user LangSmith dataset (3 curated examples)
-└── evaluators.py     # 2 LLM-as-judge offline evaluators (used in CI)
+├── dataset.py            # the older Engine-format dataset (3 curated examples)
+├── dataset_golden.json       # 16 examples — the regression suite
+├── dataset_hallucinations.json  # 14 examples — fabricated-fact bait
+├── dataset_pii.json          # 12 examples — credential-disclosure bait (synthetic)
+├── dataset_guardrail.json    # 22 examples — refuse / inject / benign
+├── dataset_snapshot.py   # export/restore a dataset to/from its committed JSON
+├── run_experiment.py     # one experiment per dataset, with evaluators + merge gates
+└── evaluators.py         # the 13 offline evaluators (7 code, 6 judge)
 
 scripts/
 ├── setup.py          # one-shot setup: dataset + online evaluators + Context Hub
