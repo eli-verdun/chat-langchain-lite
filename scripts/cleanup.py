@@ -30,6 +30,7 @@ from dotenv import load_dotenv
 load_dotenv(override=True)
 
 from evals.dataset import DATASET_NAME, TOOL_ADHERENCE_DATASET_NAME, DEMO_PRESENTER
+from utils.context_hub import DEMO_SKILL_NAMES
 PROJECT_NAME = os.getenv("LANGSMITH_PROJECT", "chat-lc-lite")
 
 
@@ -224,12 +225,13 @@ def delete_project() -> None:
             print(f"  Dataset delete failed for '{d.name}': {e}")
 
     # 3. Context Hub — delete only THIS presenter's repos. The agent repo is
-    # `chat-lc-lite-agent-<presenter>`, so the same `chat-lc-lite-*` +
-    # `-<presenter>` suffix match used for datasets above scopes this safely.
-    # The bare `chat-lc-lite-` prefix and the hardcoded generic skill handles
-    # (release-notes-skill, etc.) are deliberately NOT used: those handles are
-    # seeded un-scoped in utils/context_hub.py and would delete other demoers'
-    # identically-named repos in a shared workspace.
+    # `chat-lc-lite-agent-<presenter>`, so the `chat-lc-lite-*` + `-<presenter>`
+    # suffix match used for datasets above scopes it safely.
+    #
+    # The demo skills carry the presenter suffix too, but not the
+    # `chat-lc-lite-` prefix, so they are matched against DEMO_SKILL_NAMES.
+    # Never match a bare handle such as `release-notes-skill`: in a shared
+    # workspace that belongs to another presenter.
     print(f"\n[*] Deleting Context Hub repos (presenter '{DEMO_PRESENTER}')...")
     api_key = os.environ.get("LANGSMITH_API_KEY", "")
     workspace_id = os.environ.get("LANGSMITH_WORKSPACE_ID", "")
@@ -245,7 +247,10 @@ def delete_project() -> None:
             continue
         for repo in r.json().get("repos", []):
             handle = repo.get("repo_handle", "")
-            if handle.startswith("chat-lc-lite-") and handle.endswith(presenter_suffix):
+            ours = handle.endswith(presenter_suffix) and (
+                handle.startswith("chat-lc-lite-") or handle in DEMO_SKILL_NAMES
+            )
+            if ours:
                 try:
                     delete_fn(handle)
                     print(f"  Deleted {repo_type} '{handle}'.")

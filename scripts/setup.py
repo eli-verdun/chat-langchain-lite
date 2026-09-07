@@ -285,13 +285,18 @@ def create_online_evaluator(api_key: str, ev: dict, project_id: str, model_json:
 
 def setup_online_evaluators(api_key: str) -> list:
     from langsmith import Client
-    from langchain_anthropic import ChatAnthropic
+    from langchain_openai import ChatOpenAI
+
+    from utils.llm import judge_model_id
 
     print(f"\n[3/4] Setting up online evaluators on project '{PROJECT_NAME}'...")
 
     ls_client = Client()
     project_id = get_project_id(ls_client, PROJECT_NAME)
-    model_json = ChatAnthropic(model="claude-haiku-4-5-20251001").to_json()
+    # The judge runs server-side in LangSmith. The serialized model carries no
+    # api_key and no base_url on purpose, so no secret rides inside the rule.
+    # LangSmith resolves the provider from the workspace model configuration.
+    model_json = ChatOpenAI(model=judge_model_id()).to_json()
 
     delete_existing_evaluators(api_key)
 
@@ -313,13 +318,13 @@ def setup_online_evaluators(api_key: str) -> list:
 
 # ── Baseline experiments ───────────────────────────────────────────────────────
 
-# One baseline experiment per model. Both score ~100% on the permissive
-# seed dataset; the demo beat is the cost/latency comparison between
-# Haiku (cheap, fast) and Sonnet (more expensive, slower) in the
-# Experiments view while the PR's CI is running.
+# One baseline experiment per model. Both score near 100% on the permissive
+# seed dataset. The demo beat is the cost and latency comparison in the
+# Experiments view while the PR's CI runs. Both models are served by the
+# LangSmith LLM Gateway.
 _BASELINE_MODELS = [
-    ("claude-haiku-4-5-20251001", "haiku"),
-    ("claude-sonnet-4-6",         "sonnet"),
+    ("gpt-5.4",      "gpt-5.4"),
+    ("gpt-5.4-mini", "gpt-5.4-mini"),
 ]
 
 

@@ -4,11 +4,28 @@ A LangChain ecosystem chatbot ("Chat LangChain Lite") with intentional bugs, bui
 
 ## What this demos
 
+0. **The LangSmith platform surfaces** — every model call routes through the
+   **LLM Gateway**; traces are **credential-redacted** before storage; the project,
+   datasets, review queue, and Context Hub repos group under one **Application**;
+   👎 feedback **auto-routes to a review queue**; **online evaluators** score live
+   traces; **Insights** reports what people use it for and what goes wrong
 1. **Engine identifies bugs** — the agent has bugs in the prompt and code that cause bad responses
 2. **Engine proposes a PR fix** — targets the root cause code and opens a PR on your fork
 3. **Engine proposes offline examples and online evals to add** — expand dataset coverage and monitoring with one click
 4. **Offline evals in CI/CD** — the PR can't merge until eval scores pass a threshold
 5. **Before/after scores in LangSmith** — both "before" and "after" experiments created automatically by CI when Engine opens a PR
+
+## Models (via the LangSmith LLM Gateway)
+
+- **Agent:** `AGENT_MODEL` = **gpt-5.4** (compared against **gpt-5.4-mini**)
+- **LLM-judge evaluators:** `EVAL_JUDGE_MODEL` = **gpt-5.4-mini**
+
+Both are swappable by env. Every model call proxies through the
+[LangSmith LLM Gateway](https://docs.langchain.com/langsmith/llm-gateway-quickstart),
+authenticated with `LANGSMITH_GATEWAY_API_KEY`. The gateway resolves the real
+provider key from workspace Provider Secrets, so no local provider key is needed.
+`LANGSMITH_API_KEY` is used only for tracing and the platform API. The wiring lives
+in `utils/llm.py`.
 
 ## The bugs
 
@@ -50,12 +67,20 @@ cp .env.example .env
 
 Edit `.env`:
 ```
-ANTHROPIC_API_KEY=your-key
-LANGSMITH_API_KEY=your-demo-workspace-api-key
+LANGSMITH_GATEWAY_API_KEY=lsv2_sk_...   # LLM Gateway (all model calls)
+LANGSMITH_API_KEY=lsv2_pt_...           # tracing + platform API only
 LANGSMITH_PROJECT=chat-lc-lite
 LANGSMITH_WORKSPACE_ID=your-demo-workspace-id
 LANGSMITH_TRACING=true
+AGENT_MODEL=gpt-5.4
+EVAL_JUDGE_MODEL=gpt-5.4-mini
+TRACE_REDACTION=1
+DEMO_PRESENTER=your-name
 ```
+
+> No provider key is needed. The gateway holds it. `DEMO_PRESENTER` scopes every
+> name this demo creates — project, datasets, Context Hub repos, review queue, and
+> the Application tag — so presenters can share one workspace.
 
 > If multiple presenters share a LangSmith workspace, use a unique `LANGSMITH_PROJECT` per person (e.g. `chat-lc-lite-morgan`) to avoid mixing traces and online evaluators. The project is created automatically on first use.
 
@@ -76,23 +101,49 @@ Only needs to be run once. Between demos, run `python -m scripts.cleanup` instea
 python -m scripts.generate_traces
 ```
 
-Runs 11 single-turn queries and 1 multi-turn threaded conversation through the buggy agent to populate LangSmith with trace and thread variety beyond the dataset examples.
+Runs 13 single-turn queries and 1 multi-turn threaded conversation through the buggy
+agent. This gives LangSmith trace and thread variety beyond the dataset examples.
+Traces go through the credential-redacting tracer as the only tracer, so every
+generated trace is masked.
 
-**6. Add GitHub Actions secrets and variables** (for CI/CD)
+**6. Group the resources into one Application**
+```bash
+python -m scripts.setup_workspace
+```
+
+This creates the negative-feedback review queue, tags the project, the datasets, the
+queue, and the Context Hub repos with the reserved `Application` tag, and creates the
+run rule that routes any `user_score = 0` run into the queue. Run it after step 5, so
+the project and the datasets already exist.
+
+**7. Generate the Insights report**
+```bash
+python -m scripts.setup_insights --mode guided --save-config
+python -m scripts.setup_insights --list          # check status
+```
+
+Insights is not automatic. It runs as a background report and can take up to 30
+minutes. Generate it the day before a demo.
+
+**8. Add GitHub Actions secrets and variables** (for CI/CD)
 
 In your fork:
-- Settings → Secrets and variables → Actions → **Secrets** → add `ANTHROPIC_API_KEY`, `ANTHROPIC_BASE_URL`, `ANTHROPIC_CUSTOM_HEADERS`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`, and `LANGSMITH_WORKSPACE_ID`
-- Settings → Secrets and variables → Actions → **Variables** → add `DEMO_PRESENTER`
+- Settings → Secrets and variables → Actions → **Secrets** → add
+  `LANGSMITH_GATEWAY_API_KEY`, `LANGSMITH_API_KEY`, `LANGSMITH_PROJECT`, and
+  `LANGSMITH_WORKSPACE_ID`
+- Settings → Secrets and variables → Actions → **Variables** → add `DEMO_PRESENTER`,
+  and optionally `AGENT_MODEL` and `EVAL_JUDGE_MODEL`
 
-`DEMO_PRESENTER` should match the presenter name used for the demo setup.
+`DEMO_PRESENTER` must match the presenter name used for the demo setup. The model
+variables default to `gpt-5.4` and `gpt-5.4-mini` when unset.
 
 > **Important:** When pasting secrets, make sure there are no trailing newlines or spaces.
 
-**7. Enable GitHub Actions**
+**9. Enable GitHub Actions**
 
 In your fork: Actions → (if prompted) enable workflows. GitHub disables Actions on forks by default — this step is required for offline evals to run on PRs.
 
-**8. Connect Engine**
+**10. Connect Engine**
 
 In LangSmith Engine, connect your LangSmith project (`LANGSMITH_PROJECT`) and your GitHub fork so Engine can read traces and open PRs against your repo.
 
@@ -155,7 +206,9 @@ LangGraph SDK on loopback — it never imports the graph directly.
 
 | Script | What it does |
 |--------|-------------|
-| `python -m scripts.setup` | One-shot setup: creates dataset and creates 6 online evaluators |
+| `python -m scripts.setup` | One-shot setup: seeds Context Hub, creates the dataset, creates 6 online evaluators, seeds 2 baseline experiments |
+| `python -m scripts.setup_workspace` | Review queue + `Application` tagging + the negative-feedback run rule |
+| `python -m scripts.setup_insights` | Insights report over the traces (run AFTER trace generation) |
 | `python -m scripts.generate_traces` | Runs 11 single-turn queries + 1 multi-turn thread through the buggy agent |
 | `python -m scripts.run_evals` | Runs offline evals against the dataset and prints scores |
 | `python -m scripts.run_evals --skip-dataset` | Re-runs evals against existing dataset (used in CI) |
@@ -166,7 +219,9 @@ LangGraph SDK on loopback — it never imports the graph directly.
 
 ## Evaluators
 
-Two LLM-as-judge evaluators run in CI (offline). Claude Haiku scores each 0 or 1:
+One assertion evaluator runs in CI (offline). `EVAL_JUDGE_MODEL` scores each
+assertion 0 or 1 through the LLM Gateway, and the example score is the fraction that
+pass. The seed assertions cover:
 
 - **`tool_selection`** — did the agent ground its response in tool output rather than answering from memory? Goes 0→1 when the bad system prompt is fixed.
 - **`scope_adherence`** — did the agent stay LangChain-ecosystem-only and decline off-topic questions?
@@ -182,15 +237,18 @@ Six online evaluators are registered by `python -m scripts.setup`: `security_adv
 `.github/workflows/evals.yml` runs automatically on every PR to `main`.
 
 Add these GitHub Actions secrets to your repo (Settings → Secrets and variables → Actions → Secrets):
-- `ANTHROPIC_API_KEY`
-- `ANTHROPIC_BASE_URL`
-- `ANTHROPIC_CUSTOM_HEADERS`
+- `LANGSMITH_GATEWAY_API_KEY`
 - `LANGSMITH_API_KEY`
 - `LANGSMITH_PROJECT`
 - `LANGSMITH_WORKSPACE_ID`
 
-Add this GitHub Actions variable as well (Settings → Secrets and variables → Actions → Variables):
+Add these GitHub Actions variables as well (Settings → Secrets and variables → Actions → Variables):
 - `DEMO_PRESENTER`
+- `AGENT_MODEL` (optional, defaults to `gpt-5.4`)
+- `EVAL_JUDGE_MODEL` (optional, defaults to `gpt-5.4-mini`)
+
+The workflow is gated on the manually-applied `run-evals` label. Add the label to a
+PR to fire it.
 
 `LANGSMITH_PROJECT` should match what you used locally — that's the project the agent traces against.
 `DEMO_PRESENTER` should match the presenter name used by the demo setup.
@@ -215,11 +273,17 @@ context/
 
 agent/
 ├── tools.py          # concept lookup, setup guides, security advice (Bugs 2 & 3)
-└── agent.py          # create_agent + FilesystemMiddleware (Bug 4 — max_tokens)
+└── agent.py          # create_agent + FilesystemMiddleware (Bug 4 — max_tokens).
+                      # build_agent() is raw (experiments own tracing);
+                      # build_serving_agent() adds the redacting tracer.
 
 utils/
-└── context_hub.py    # setup-time push helper. Holds the *initial seed* for
-                      # Context Hub only; not the runtime source of truth.
+├── context_hub.py    # setup-time push helper. Holds the *initial seed* for
+│                     # Context Hub only; not the runtime source of truth.
+├── llm.py            # LLM Gateway wiring — base_url + gateway key for every
+│                     # ChatOpenAI, plus the agent and judge model ids.
+├── redaction.py      # masks credentials and emails in traces before storage
+└── governance.py     # Application name, review queue name, feedback rule filter
 
 evals/
 ├── dataset.py        # creates per-user LangSmith dataset (3 curated examples)
@@ -227,6 +291,8 @@ evals/
 
 scripts/
 ├── setup.py          # one-shot setup: dataset + online evaluators + Context Hub
+├── setup_workspace.py    # review queue + Application tagging + feedback run rule
+├── setup_insights.py     # Insights report config over the traces
 ├── generate_traces.py    # populate LangSmith with extra traces and threads
 ├── run_evals.py          # offline evals + CI threshold check
 └── cleanup.py            # resets demo to clean state after presentation
@@ -243,6 +309,89 @@ web/
 langgraph.json       # LangGraph deployment manifest: exposes the `agent` graph
                      # and mounts the FastHTML UI (`http.app`).
 ```
+
+## Application grouping
+
+`scripts/setup_workspace.py` tags every workspace resource with the reserved
+`Application` tag key, using the value `chat-langchain-lite-<presenter>`. The
+LangSmith UI then groups them under one application:
+
+| Resource | How it is tagged |
+|---|---|
+| tracing project | tagged directly |
+| datasets | tagged directly |
+| review queue | tagged directly |
+| Context Hub agent repo | tagged directly |
+| Context Hub skill repos | tagged directly, one each |
+| experiments | inherit the tag from their dataset |
+| deployment, dashboard | set `APPLICATION_DEPLOYMENT_ID` / `APPLICATION_DASHBOARD_ID`, or tag once in the UI |
+
+The v1 API cannot list deployments or dashboards, so they cannot be found by name.
+
+## Feedback loop
+
+The chat UI writes `user_score` (👍/👎) and `user_comment` to the run. The
+"Negative Feedback" run rule matches `user_score = 0` and adds the run to the
+review queue. The rule is the product-level automation, so it covers feedback from
+the chat UI, the LangSmith UI, and the SDK alike. Names live in
+`utils/governance.py`. Keep the queue name stable: a rename creates a second queue
+while the rule still routes to the first.
+
+## Trace redaction
+
+This chatbot holds no customer records. Its traces still carry secrets, because
+developers paste real keys into the chat. `utils/redaction.py` attaches a
+rule-based anonymizer (`create_anonymizer` → `Client(anonymizer=...)` on a
+`LangChainTracer`) that masks LangSmith, Anthropic, OpenAI, GitHub, and AWS keys,
+JWTs, bearer tokens, and email addresses **before traces are stored**.
+Documentation identifiers survive: `docs.langchain.com`, package names, and
+version numbers such as `3.10+` never match. See
+[the masking docs](https://docs.langchain.com/langsmith/mask-inputs-outputs).
+
+`build_serving_agent()` attaches the tracer, and `langgraph.json` serves that. The
+trace generator uses it as the only tracer, so bulk demo traces are masked and not
+duplicated. Experiments keep using `build_agent()`: an extra tracer would override
+the one `aevaluate` installs and strip cost from the experiment.
+
+Set `TRACE_REDACTION=0` to disable it. That is not recommended.
+
+## Insights
+
+Insights reports on two axes, and the order matters. Categories say what developers
+**use** the chatbot for. Attributes say what **went wrong**, and they aggregate
+inside each category. Read it as "developers mostly ask X, and in N% of those it
+cited the stale docs domain."
+
+| Axis | Attributes |
+|---|---|
+| Usage | `request_type`, `outcome` |
+| Quality | `cited_stale_docs_domain`, `wrong_version_fact`, `answered_from_memory`, `response_truncated`, `casual_tone`, `answered_out_of_scope`, `credential_in_conversation`, `tool_failed` |
+
+```bash
+python -m scripts.setup_insights --mode auto                     # cluster bottom-up (the honest story)
+python -m scripts.setup_insights --mode guided --save-config     # force the demo's known categories
+python -m scripts.setup_insights --list                          # check status
+```
+
+The summary prompt runs over `{{all_thread_messages}}`, which is required: the
+trace generator produces multi-turn threads, and `run.*` exposes only the last
+turn. The prompt records *that* a credential appeared and never copies the value,
+so the report does not become a second copy of the secret.
+
+> Insights needs a **workspace model configuration** with a real OpenAI or
+> Anthropic secret (Settings → Model configurations). That is *not* the gateway
+> credential the agent uses — `LANGSMITH_GATEWAY_API_KEY` does not satisfy it.
+> Plus/Enterprise only; roughly $1–2 per 1,000 threads.
+
+## Model comparison
+
+```bash
+AGENT_MODEL=gpt-5.4      python -m scripts.run_evals --skip-dataset --experiment-prefix gpt-5.4
+AGENT_MODEL=gpt-5.4-mini python -m scripts.run_evals --skip-dataset --experiment-prefix gpt-5.4-mini
+```
+
+`scripts.setup` already seeds one baseline experiment per model, so the dataset's
+experiment view has a cost and latency comparison before the demo starts.
 
 ## Cleanup
 

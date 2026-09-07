@@ -4,18 +4,26 @@ A single `assertion_evaluator` consumes each example's `assertions` list
 and produces one feedback row per assertion via LLM-as-judge. This matches
 the format Engine emits when proposing generated examples to a dataset,
 so anything Engine adds is scored the same way.
+
+The judge runs on EVAL_JUDGE_MODEL through the LangSmith LLM Gateway. See
+`utils/llm.py`.
 """
 
-from anthropic import Anthropic
+from langchain_openai import ChatOpenAI
 
-_anthropic_client = None
+from utils.llm import judge_model_id, openai_gateway_kwargs
+
+_judge = None
 
 
-def _get_anthropic_client() -> Anthropic:
-    global _anthropic_client
-    if _anthropic_client is None:
-        _anthropic_client = Anthropic()
-    return _anthropic_client
+def _get_judge() -> ChatOpenAI:
+    """Return the judge model, built once and routed through the LLM Gateway."""
+    global _judge
+    if _judge is None:
+        _judge = ChatOpenAI(
+            model=judge_model_id(), max_tokens=16, **openai_gateway_kwargs()
+        )
+    return _judge
 
 
 def _judge_assertion(criterion: str, output: str, tools_called: list[str]) -> float:
@@ -23,7 +31,7 @@ def _judge_assertion(criterion: str, output: str, tools_called: list[str]) -> fl
 
     Returns 1.0 if 'yes', 0.0 otherwise.
     """
-    client = _get_anthropic_client()
+    judge = _get_judge()
     system_prompt = (
         "You are evaluating whether an AI agent's response satisfies a single, "
         "specific assertion (success criterion).\n\n"
@@ -51,13 +59,10 @@ def _judge_assertion(criterion: str, output: str, tools_called: list[str]) -> fl
         f"Agent response:\n{output}\n\n"
         "Does the response satisfy the assertion? Answer ONLY 'yes' or 'no'."
     )
-    response = client.messages.create(
-        model="claude-haiku-4-5-20251001",
-        max_tokens=16,
-        system=system_prompt,
-        messages=[{"role": "user", "content": user_msg}],
+    response = judge.invoke(
+        [{"role": "system", "content": system_prompt}, {"role": "user", "content": user_msg}]
     )
-    answer = response.content[0].text.strip().lower()
+    answer = (response.content or "").strip().lower() if isinstance(response.content, str) else ""
     return 1.0 if answer.startswith("yes") else 0.0
 
 

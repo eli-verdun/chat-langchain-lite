@@ -15,21 +15,25 @@ jobs:
     if: contains(github.event.pull_request.labels.*.name, 'run-evals')
     runs-on: ubuntu-latest
     env:
-      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-      ANTHROPIC_BASE_URL: ${{ secrets.ANTHROPIC_BASE_URL }}
-      ANTHROPIC_CUSTOM_HEADERS: ${{ secrets.ANTHROPIC_CUSTOM_HEADERS }}
+      # The agent and the judge both call models through the LangSmith LLM
+      # Gateway, authenticated with LANGSMITH_GATEWAY_API_KEY. No provider key
+      # is needed here. LANGSMITH_API_KEY is used only for tracing and the
+      # platform API.
+      LANGSMITH_GATEWAY_API_KEY: ${{ secrets.LANGSMITH_GATEWAY_API_KEY }}
       LANGSMITH_API_KEY: ${{ secrets.LANGSMITH_API_KEY }}
       LANGSMITH_PROJECT: ${{ secrets.LANGSMITH_PROJECT }}
       LANGSMITH_WORKSPACE_ID: ${{ secrets.LANGSMITH_WORKSPACE_ID }}
       DEMO_PRESENTER: ${{ vars.DEMO_PRESENTER }}
+      AGENT_MODEL: ${{ vars.AGENT_MODEL || 'gpt-5.4' }}
+      EVAL_JUDGE_MODEL: ${{ vars.EVAL_JUDGE_MODEL || 'gpt-5.4-mini' }}
       LANGSMITH_TRACING: "true"
     steps:
       # Run a single "after" experiment on the PR branch. We dropped the
       # "before" run because the most common demo fixes (AGENTS.md prompt,
       # tone) live in Context Hub — the PR diff is empty for those, so
       # before/after would score identically. The pre-seeded baseline
-      # experiments (baseline-haiku-…, baseline-sonnet-…) already give
-      # the presenter a "before" reference in the dataset's experiment
+      # experiments (baseline-gpt-5.4-…, baseline-gpt-5.4-mini-…) already
+      # give the presenter a "before" reference in the dataset's experiment
       # view. The threshold check on this run is what gates merge.
       - uses: actions/checkout@v4
         with:
