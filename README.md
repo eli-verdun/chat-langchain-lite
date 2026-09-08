@@ -35,8 +35,8 @@ Bugs are spread across three files so Engine has to reason about code, not just 
 |-----|------|--------|-----------|
 | "Never use tools, never decline" instruction | LangSmith Context Hub (`chat-lc-lite-agent-robert` / AGENTS.md) — fix in the Context Hub UI, not the repo | Answers any topic; answers from memory instead of calling tools | `tool_usage`, `scope_adherence` |
 | Casual / emoji voice | LangSmith Context Hub (`chat-lc-lite-agent-robert` / AGENTS.md) — fix in the Context Hub UI, not the repo | Every response starts with "Hey there! 👋", uses emojis throughout, ends with "Happy building! 🚀" | `professional_tone` |
-| Wrong docs URL in SAFE_PATTERNS | `agent/tools.py` | Agent recommends stale `python.langchain.com` / `js.langchain.com` links instead of `docs.langchain.com` | `security_advice` |
-| Wrong LangGraph min Python version | `agent/tools.py` | Returns "3.7+" instead of the correct "3.10+" | `factual_accuracy` |
+| ~~Wrong docs URL in SAFE_PATTERNS~~ (fixed) | `agent/tools.py` | Agent recommended stale `python.langchain.com` / `js.langchain.com` links instead of `docs.langchain.com` | `security_advice`, `evals/test_reference_data.py` |
+| ~~Wrong LangGraph min Python version~~ (fixed) | `agent/tools.py` | Returned "3.7+" instead of the correct "3.10+" | `factual_accuracy`, `evals/test_reference_data.py` |
 | `max_tokens=300` | `agent/agent.py` | Truncates responses on complex technical questions | `response_completeness` |
 
 ## Setup
